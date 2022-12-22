@@ -4,6 +4,8 @@ local SHOW_SAVED_TEXT_DELAY_IN_SECS = 5
 local TRACK_NAME = ac.getTrackName()
 local PREFIX = 'POINT_'
 
+local reloadPointsButtonClicked = false
+
 local lastPointNumber = -1
 local pointOrderIndex = 0
 local currentTrackTeleports = {}
@@ -64,16 +66,14 @@ function loadPointsFromServerConfig()
       pointOrderIndex = pointOrderIndex + 1
     end
   end
-  firstRun = false
   reloadPointsButtonClicked = false
 end
 
 --загружаем точки из конфига
 loadPointsFromServerConfig()
 
-local firstRun = true-- флаг показывающий что это первый запуск скрипта
-local reloadPointsButtonClicked = false
 
+local POINTS_PER_LINE = 3 -- количество кнопок телепорта на одной строке
 function script.windowMain(dt)
   --ac.log('main window')
   ui.text(TRACK_NAME .. ' teleports:\n')
@@ -106,14 +106,16 @@ function script.windowMain(dt)
 
 
 
-  ac.debug("ctt - size", #currentTrackTeleports)
+  ac.debug("current track teleport count", #currentTrackTeleports)
   -- ipairs для вывода точек по порядку
-    for _, tpData in ipairs(currentTrackTeleports) do
+    for i, tpData in ipairs(currentTrackTeleports) do
       --ac.log('tpData>' .. tpData)
       if ui.button(tpData['teleport']['name']) then
         ac.teleportToServerPoint(tpData['pointOrderIndex'])
       end
-      ui.sameLine()
+      if math.fmod(i, POINTS_PER_LINE) ~= 0 then
+        ui.sameLine()
+      end
     end
     ui.invisibleButton()
 
@@ -138,7 +140,7 @@ local addIndex
 
 function script.pointEditor(dt)
   local windowID = ui.getLastID()
-  local windowPos = ui.windowPos()
+  --local windowPos = ui.windowPos()
 
 
   if reloadPointsButtonClicked then
@@ -151,7 +153,8 @@ function script.pointEditor(dt)
 
   if listSaveTick~= nil and listSaveTick + SHOW_SAVED_TEXT_DELAY_IN_SECS > os.clock() then
     ui.sameLine()
-    ui.textDisabled(filePathFull .. ' saved')
+    ui.dwriteText(filePathFull .. ' saved', 16, rgbm(100, 50, 0, 250))
+    ui.textDisabled()
   end
 
   if ui.smallButton('save list as file') then
@@ -189,16 +192,10 @@ function script.pointEditor(dt)
   for i, teleportData in pairs(currentTrackTeleports) do
 
     local point = teleportData['teleport']['name']
-    ac.debug(i .. " name ->", point)
-    ac.debug(i .. " pos ->", teleportData['teleport']['pos'])
-    ac.debug(i .. " heading ->", teleportData['teleport']['heading'])
-    --for k, v in pairs(teleportData['teleport']) do
-    --  if type(v) == 'string' then
-    --    ac.log('k-> '..k.."  ||  " ..'v-> ' .. v)
-    --  else
-    --    ac.log('t v -> ' .. type(v))
-    --  end
-    --end
+    --ac.debug(i .. " name ->", point)
+    --ac.debug(i .. " pos ->", teleportData['teleport']['pos'])
+    --ac.debug(i .. " heading ->", teleportData['teleport']['heading'])
+
     if ui.button(point) then
       selectedPointIndex = i
     end
@@ -239,7 +236,6 @@ function script.pointEditor(dt)
       ui.sameLine()
       if ui.smallButton('up') then
         if selectedPointIndex > 1 then
-          ac.log('selectedPointIndex '..selectedPointIndex)
           ac.log('up')
           local tempPoint = currentTrackTeleports[selectedPointIndex - 1]
           currentTrackTeleports[selectedPointIndex - 1] = currentTrackTeleports[selectedPointIndex]
@@ -265,6 +261,10 @@ function script.pointEditor(dt)
 
   ui.endChild()
 
+  ui.separator()
+  ui.separator()
+  ui.separator()
+
   if addPanelActive then
     local addInputText
     if newPointName == nil then
@@ -286,6 +286,7 @@ function script.pointEditor(dt)
       inputText = pointEditedName
     end
 
+    ui.dwriteText('name must be unique', 20, rgbm(100, 0, 0, 50))
     pointEditedName = ui.inputText("", inputText)
 
     ui.sameLine()
@@ -320,18 +321,19 @@ function script.pointEditor(dt)
   end
 
 
-  ui.separator()
-  ui.separator()
-  ui.separator()
 end
 
 function script.pointEditorSettings(dt)
   ui.text('settings window')
 end
 
+function script.helpWindow(dt)
+  ui.text('aboba')
+end
+
 function _inner(inputText, pointIndex, addAfter_)
 
-  ui.textDisabled('name must be unique')
+  ui.dwriteText('name must be unique', 20, rgbm(100, 0, 0, 50))
   newPointName = ui.inputText('', inputText)
 
   local posInsert
@@ -386,6 +388,7 @@ end
 function _saveListToFile(list, path)
   local file = io.open(path, "w")
   local tpNumber = 0
+  file:write('[TELEPORT_DESTINATIONS]\n')
   for _, tpList in ipairs(list) do
     for _, tpD in ipairs(tpList) do
       local tp = tpD['teleport']
