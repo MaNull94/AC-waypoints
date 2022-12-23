@@ -1,4 +1,4 @@
-local FILE_PATH = 'apps\\lua\\waypoints'
+local FILE_PATH = 'apps\\lua\\waypoints\\results'
 local SHOW_SAVED_TEXT_DELAY_IN_SECS = 5
 
 local TRACK_NAME = ac.getTrackName()
@@ -8,16 +8,25 @@ local reloadPointsButtonClicked = false
 
 local lastPointNumber = -1
 local pointOrderIndex = 0
-local currentTrackTeleports = {}
-local cTTSize = 0
-local otherTrackTeleports = {}
+local currentTrackTeleportsFull = {} -- телепорты из конфига и из редактора
+local cTTFullSize = 0
+-- телепорты ТОЛЬКО из конфига
+--для телепортов. КЭП. короче чтобы не было лишних тп,
+--которые по факту есть только в редакторе, но не на сервере
+local currentTrackTeleportConfig = {}
+local cTTConfigSize = 0
+
+local otherTrackTeleports = {} -- остальные точки телепорта из конфига
 local oTTSize = 0
+
 function loadPointsFromServerConfig()
   --ac.log('loadFrom server start')
   lastPointNumber = -1
   pointOrderIndex = 0
-  currentTrackTeleports = {}
-  cTTSize = 0
+  currentTrackTeleportsFull = {}
+  cTTFullSize = 0
+  currentTrackTeleportConfig = {}
+  cTTConfigSize = 0
   otherTrackTeleports = {}
   oTTSize = 0
   local onlineExtras = ac.INIConfig.onlineExtras()
@@ -55,8 +64,12 @@ function loadPointsFromServerConfig()
       teleportData['pointOrderIndex'] = pointOrderIndex
       teleportData['teleport'] = teleport
       if pointTrackName == TRACK_NAME then
-        cTTSize = cTTSize + 1
-        currentTrackTeleports[cTTSize] = teleportData
+        cTTFullSize = cTTFullSize + 1
+        currentTrackTeleportsFull[cTTFullSize] = teleportData
+
+        cTTConfigSize = cTTConfigSize + 1
+        currentTrackTeleportConfig[cTTConfigSize] = teleportData
+
       else
         oTTSize = oTTSize + 1
         otherTrackTeleports[oTTSize] = teleportData
@@ -106,9 +119,9 @@ function script.windowMain(dt)
 
 
 
-  ac.debug("current track teleport count", #currentTrackTeleports)
+  --ac.debug("current track teleport count", #currentTrackTeleports)
   -- ipairs для вывода точек по порядку
-    for i, tpData in ipairs(currentTrackTeleports) do
+    for i, tpData in ipairs(currentTrackTeleportConfig) do
       --ac.log('tpData>' .. tpData)
       if ui.button(tpData['teleport']['name']) then
         ac.teleportToServerPoint(tpData['pointOrderIndex'])
@@ -159,7 +172,7 @@ function script.pointEditor(dt)
 
   if ui.smallButton('save list as file') then
     local teleportList = {
-      currentTrackTeleports,
+      currentTrackTeleportsFull,
       otherTrackTeleports
     }
     _saveListToFile(teleportList, filePathFull)
@@ -179,7 +192,7 @@ function script.pointEditor(dt)
   if ui.button('add point') then
     addPanelActive = true
     addAfter = nil
-    addIndex = #currentTrackTeleports + 1
+    addIndex = #currentTrackTeleportsFull + 1
   end
 
   --ui.textDisabled("текст серым шрифтом")
@@ -189,7 +202,7 @@ function script.pointEditor(dt)
 
 
   ui.beginChild(windowID, vec2(500, 275), true, ui.WindowFlags['HorizontalScrollbar'])
-  for i, teleportData in pairs(currentTrackTeleports) do
+  for i, teleportData in pairs(currentTrackTeleportsFull) do
 
     local point = teleportData['teleport']['name']
     --ac.debug(i .. " name ->", point)
@@ -237,9 +250,9 @@ function script.pointEditor(dt)
       if ui.smallButton('up') then
         if selectedPointIndex > 1 then
           ac.log('up')
-          local tempPoint = currentTrackTeleports[selectedPointIndex - 1]
-          currentTrackTeleports[selectedPointIndex - 1] = currentTrackTeleports[selectedPointIndex]
-          currentTrackTeleports[selectedPointIndex] = tempPoint
+          local tempPoint = currentTrackTeleportsFull[selectedPointIndex - 1]
+          currentTrackTeleportsFull[selectedPointIndex - 1] = currentTrackTeleportsFull[selectedPointIndex]
+          currentTrackTeleportsFull[selectedPointIndex] = tempPoint
           selectedPointIndex = selectedPointIndex - 1
         end
       end
@@ -247,11 +260,11 @@ function script.pointEditor(dt)
 
       ui.sameLine()
       if ui.smallButton('down') then
-        if selectedPointIndex < #currentTrackTeleports then
+        if selectedPointIndex < #currentTrackTeleportsFull then
           ac.log('down')
-          local tempPoint = currentTrackTeleports[selectedPointIndex + 1]
-          currentTrackTeleports[selectedPointIndex + 1] = currentTrackTeleports[selectedPointIndex]
-          currentTrackTeleports[selectedPointIndex] = tempPoint
+          local tempPoint = currentTrackTeleportsFull[selectedPointIndex + 1]
+          currentTrackTeleportsFull[selectedPointIndex + 1] = currentTrackTeleportsFull[selectedPointIndex]
+          currentTrackTeleportsFull[selectedPointIndex] = tempPoint
           selectedPointIndex = selectedPointIndex + 1
         end
       end
@@ -281,7 +294,7 @@ function script.pointEditor(dt)
   if selectedPointIndex > 0 and editPanelActive then
     local inputText
     if pointEditedName == nil then
-      inputText = currentTrackTeleports[selectedPointIndex]['teleport']['name']
+      inputText = currentTrackTeleportsFull[selectedPointIndex]['teleport']['name']
     else
       inputText = pointEditedName
     end
@@ -293,7 +306,7 @@ function script.pointEditor(dt)
     if ui.button('save') then
       pointEditedName = _trim(pointEditedName)
       if pointEditedName ~= '' then
-        currentTrackTeleports[selectedPointIndex]['teleport']['name'] = pointEditedName
+        currentTrackTeleportsFull[selectedPointIndex]['teleport']['name'] = pointEditedName
         editPanelActive = false
       end
     end
@@ -307,9 +320,9 @@ function script.pointEditor(dt)
   end
 
   if selectedPointIndex > 0 and deletePanelActive then
-    ui.text('Delete ' .. currentTrackTeleports[selectedPointIndex]['teleport']['name'] .. '?')
+    ui.text('Delete ' .. currentTrackTeleportsFull[selectedPointIndex]['teleport']['name'] .. '?')
     if ui.button('yes') then
-      currentTrackTeleports[selectedPointIndex] = nil
+      currentTrackTeleportsFull[selectedPointIndex] = nil
       deletePanelActive = false
     end
 
@@ -328,7 +341,9 @@ function script.pointEditorSettings(dt)
 end
 
 function script.helpWindow(dt)
-  ui.text('aboba')
+  ui.copyable('https://github.com/MaNull94')
+  ui.text('aga')
+  ui.hyperlink('aboba')
 end
 
 function _inner(inputText, pointIndex, addAfter_)
@@ -356,7 +371,7 @@ function _inner(inputText, pointIndex, addAfter_)
   if ui.button('create' .. posInsert) then
     newPointName = _trim(newPointName)
     if newPointName ~= '' then
-      table.insert(currentTrackTeleports, insertIndex, _createPoint(newPointName))
+      table.insert(currentTrackTeleportsFull, insertIndex, _createPoint(newPointName))
       newPointName = nil
       addPanelActive = false
     end
