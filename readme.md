@@ -30,7 +30,7 @@ point editor (скрин пункт 2)
 Для замены точек нужно остановить сервер и заменить все точки в конфиге на точки из файла руками
 
 ---
-<details>
-  <summary>Скрин</summary>
-  ![wp](waypoints.png)
-</details>
+
+Скрин
+
+![wp](waypoints.png)
