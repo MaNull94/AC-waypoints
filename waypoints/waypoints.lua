@@ -203,6 +203,9 @@ function script.pointEditor(dt)
 
   ui.beginChild(windowID, vec2(500, 275), true, ui.WindowFlags['HorizontalScrollbar'])
   for i, teleportData in pairs(currentTrackTeleportsFull) do
+    if teleportData == 'deleted' then
+      goto continue_pointEditor_for
+    end
 
     local point = teleportData['teleport']['name']
     --ac.debug(i .. " name ->", point)
@@ -270,6 +273,7 @@ function script.pointEditor(dt)
       end
 
     end
+    :: continue_pointEditor_for ::
   end
 
   ui.endChild()
@@ -322,7 +326,7 @@ function script.pointEditor(dt)
   if selectedPointIndex > 0 and deletePanelActive then
     ui.text('Delete ' .. currentTrackTeleportsFull[selectedPointIndex]['teleport']['name'] .. '?')
     if ui.button('yes') then
-      currentTrackTeleportsFull[selectedPointIndex] = nil
+      currentTrackTeleportsFull[selectedPointIndex] = 'deleted' -- если указать nil, то обрежется весь список
       deletePanelActive = false
     end
 
@@ -341,7 +345,7 @@ function script.pointEditorSettings(dt)
 end
 
 function script.helpWindow(dt)
-  ui.copyable('https://github.com/MaNull94')
+  ui.copyable('https://github.com/MaNull94/AC-waypoints')
   ui.text('aga')
   ui.hyperlink('aboba')
 end
@@ -406,16 +410,19 @@ function _saveListToFile(list, path)
   file:write('[TELEPORT_DESTINATIONS]\n')
   for _, tpList in ipairs(list) do
     for _, tpD in ipairs(tpList) do
-      local tp = tpD['teleport']
-      file:write(PREFIX..tpNumber..' = '..tp['name'] .. '\n')
-      file:write(PREFIX..tpNumber..'_GROUP = '..tp['group'].. '\n')
-      local tpPos = tp['pos']
-      local tpPosAsText = string.format("%s,%s,%s", math.round(tpPos.x, 1), math.round(tpPos.y, 1), math.round(tpPos.z, 1) )
-      file:write(PREFIX..tpNumber..'_POS = '..tpPosAsText.. '\n')
-      file:write(PREFIX..tpNumber..'_HEADING = '..tp['heading'] .. '\n')
-      file:write("\n")
+      if tpD ~= 'deleted' then -- если точку не удалили, сохраняем
+        local tp = tpD['teleport']
+        ac.log("tp: " .. tp['name'])
+        file:write(PREFIX..tpNumber..' = '..tp['name'] .. '\n')
+        file:write(PREFIX..tpNumber..'_GROUP = '..tp['group'].. '\n')
+        local tpPos = tp['pos']
+        local tpPosAsText = string.format("%s,%s,%s", math.round(tpPos.x, 1), math.round(tpPos.y, 1), math.round(tpPos.z, 1) )
+        file:write(PREFIX..tpNumber..'_POS = '..tpPosAsText.. '\n')
+        file:write(PREFIX..tpNumber..'_HEADING = '..tp['heading'] .. '\n')
+        file:write("\n")
 
-      tpNumber = tpNumber + 1
+        tpNumber = tpNumber + 1
+      end
     end
   end
   file:close()
@@ -426,7 +433,7 @@ function _trim(string)
 end
 
 function _createPoint(newPointName_)
-  -- copypast from https://www.racedepartment.com/downloads/comfy-map.52623/
+  -- copy paste from https://www.racedepartment.com/downloads/comfy-map.52623/
   local x = math.round(ac.getCameraPosition().x,1)
   local y = math.round((ac.getCameraPosition().y - physics.raycastTrack(ac.getCameraPosition(), vec3(0, -1, 0), 20) + 0.5),1)
   local z = math.round(ac.getCameraPosition().z,1)
